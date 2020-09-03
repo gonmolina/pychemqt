@@ -44,12 +44,9 @@ class Xe(MEoS):
 
     Fi1 = {"ao_log": [1, 1.5],
            "pow": [0, 1],
-           "ao_pow": [-3.8227178129, 3.8416395351],
-           "ao_exp": [], "titao": []}
+           "ao_pow": [-3.8227178129, 3.8416395351]}
 
-    CP1 = {"ao": 2.5,
-           "an": [], "pow": [],
-           "ao_exp": [], "exp": []}
+    CP1 = {"ao": 2.5}
 
     lemmon = {
         "__type__": "Helmholtz",
@@ -81,6 +78,7 @@ class Xe(MEoS):
         "nr4": []}
 
     eq = lemmon,
+    _PR = [-0.5639, -12.9972]
 
     _surface = {"sigma": [-0.11538, 0.16598], "exp": [1.0512, 1.098]}
     _dielectric = {

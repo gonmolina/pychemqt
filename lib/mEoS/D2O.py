@@ -55,8 +55,7 @@ class D2O(MEoS):
            "ao_pow": [0.3087155964e2, -.3827264031e2, 0.4424799189,
                       -.1256336874e1, 0.2843343470, -.2401555088e-1],
            "tau*logtau": -.1288399716e2,
-           "tau*logdelta": 0.4415884023e1,
-           "ao_exp": [], "titao": []}
+           "tau*logdelta": 0.4415884023e1}
 
     herrig = {
         "__type__": "Helmholtz",
@@ -189,7 +188,8 @@ class D2O(MEoS):
                            "Levelt Sengers, J.M.H.",
                   "title": "Thermophysical Properties of Fluid D2O",
                   "ref": "J. Phys. Chem. Ref. Data 13(2) (1984) 601-609",
-                  "doi": "10.1063/1.555714"}}
+                  "doi": "10.1063/1.555714"},
+              "__code__": (_D2O_Viscosity, )}
 
     def _visco0(self, rho, T, fase):
         mu = _D2O_Viscosity(rho, T)
@@ -205,7 +205,8 @@ class D2O(MEoS):
                            "Levelt Sengers, J.M.H.",
                   "title": "Thermophysical Properties of Fluid D2O",
                   "ref": "J. Phys. Chem. Ref. Data 13(2) (1984) 601-609",
-                  "doi": "10.1063/1.555714"}}
+                  "doi": "10.1063/1.555714"},
+              "__code__": (_D2O_ThCond, )}
 
     def _thermo0(self, rho, T, fase):
         k = _D2O_ThCond(rho, T)

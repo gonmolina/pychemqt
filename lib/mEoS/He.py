@@ -44,14 +44,11 @@ class He(MEoS):
     momentoDipolar = unidades.DipoleMoment(0.0, "Debye")
     id = 212
 
-    CP1 = {"ao": 2.5,
-           "an": [], "pow": [],
-           "ao_exp": [], "exp": []}
+    CP1 = {"ao": 2.5}
 
     Fi2 = {"ao_log": [1, 1.5],
            "pow": [0, 1],
-           "ao_pow": [13.628409737, -143.470759602],
-           "ao_exp": [], "titao": []}
+           "ao_pow": [13.628409737, -143.470759602]}
 
     ortiz = {
         "__type__": "Helmholtz",
@@ -200,7 +197,6 @@ class He(MEoS):
         "nr4": []}
 
     eq = ortiz, mccarty, MBWR, GERG
-    _PR = -0.005886
 
     _surface = {"sigma": [0.0004656, 0.001889, -0.002006],
                 "exp": [1.04, 2.468, 2.661]}

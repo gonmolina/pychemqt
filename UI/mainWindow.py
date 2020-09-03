@@ -45,7 +45,7 @@ from tools import (UI_confComponents, UI_Preferences, UI_confTransport,
 
 __version__ = "0.1.0"
 
-other_window = (plots.Binary_distillation, UI_Tables.TablaMEoS,
+other_window = (plots.Binary_distillation, UI_Tables.table.TablaMEoS,
                 UI_Tables.PlotMEoS)
 other_window_names = [cl.__name__ for cl in other_window]
 
@@ -1185,6 +1185,8 @@ class UI_pychemqt(QtWidgets.QMainWindow):
 
     def aboutToShow_MenuWindow(self):
         self.menuVentana.clear()
+
+        # Add subwindow options
         self.menuVentana.addAction(
             QtGui.QIcon(IMAGE_PATH + "button/arrow-left.png"),
             QtWidgets.QApplication.translate("pychemqt", "&Previous"),
@@ -1211,19 +1213,42 @@ class UI_pychemqt(QtWidgets.QMainWindow):
             QtWidgets.QApplication.translate("pychemqt", "&Iconize All"),
             self.windowMinimizeAll)
         self.menuVentana.addSeparator()
+
+        # Add subwindow list
+        active = self.currentMdi.activeSubWindow()
         for i, window in enumerate(self.currentMdi.subWindowList()):
-            self.menuVentana.addAction("&%i %s" % (i+1, window.windowTitle()))
+            if window is active:
+                iconPath = IMAGE_PATH + "button/ok.png"
+            else:
+                iconPath = ""
+            self.menuVentana.addAction(
+                QtGui.QIcon(iconPath),
+                "&%i %s" % (i+1, window.windowTitle()),
+                partial(self.windowSelect, i))
         self.menuVentana.addSeparator()
+
         self.menuVentana.addAction(
             QtGui.QIcon(IMAGE_PATH + "button/fileClose.png"),
             QtWidgets.QApplication.translate("pychemqt", "&Close window"),
-            self.currentMdi.closeActiveSubWindow)
+            self.windowClose)
+
+    def windowClose(self):
+        self.currentMdi.closeActiveSubWindow()
+        self.dirty[self.idTab] = True
+        self.saveControl()
+
+    def windowSelect(self, index):
+        """Show the selected subwindow"""
+        window = self.currentMdi.subWindowList()[index]
+        self.currentMdi.setActiveSubWindow(window)
 
     def windowRestoreAll(self):
+        """Restore all subwindows to last window size and position"""
         for window in self.currentMdi.subWindowList():
             window.showNormal()
 
     def windowMinimizeAll(self):
+        """Minimize all subwindows"""
         for window in self.currentMdi.subWindowList():
             window.showMinimized()
 
@@ -1251,12 +1276,18 @@ class UI_pychemqt(QtWidgets.QMainWindow):
             QtWidgets.QApplication.translate("pychemqt", "Clear"),
             self.clearRecentFiles)
 
-# File Manipulation
+        # Disable clear option if menu is empty
+        if not recentFiles:
+            self.menuRecentFiles.actions()[-1].setEnabled(False)
+
+    # File Manipulation
     def clearRecentFiles(self):
+        """Clear recent open files list"""
         self.recentFiles = []
         self.menuRecentFiles.setEnabled(False)
 
     def addRecentFile(self, fname):
+        """Populate recent file menu"""
         if fname and fname not in self.recentFiles:
             self.recentFiles.insert(0, fname)
             if len(self.recentFiles) > 9:
@@ -1337,13 +1368,13 @@ class UI_pychemqt(QtWidgets.QMainWindow):
                     other[ind] = ventana
 
                     # Add dependences from other windows
-                    if widget["external_dependences"]:
+                    if widget.get("external_dependences", None):
                         data["external_dependences"].add(
                             widget["external_dependences"])
 
                 data["other"] = other
 
-                # python set are not serializable so convert to lis s
+                # python set are not serializable so convert to list
                 data["external_dependences"] = list(
                     data["external_dependences"])
 

@@ -51,7 +51,6 @@ class nC9(MEoS):
     Fi2 = {"ao_log": [1, 3.0],
            "pow": [0, 1],
            "ao_pow": [16.313913248, -102.160247463],
-           "ao_exp": [], "titao": [],
            "ao_sinh": [18.0241, 53.3415], "sinh": [0.263819696, 2.848860483],
            "ao_cosh": [38.1235], "cosh": [1.370586158]}
 
@@ -109,6 +108,7 @@ class nC9(MEoS):
         "gamma2": [1]*6}
 
     eq = lemmon, GERG
+    _PR = [0.0755, -22.2752]
 
     _surface = {"sigma": [0.053388], "exp": [1.262]}
     _dielectric = {

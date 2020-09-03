@@ -18,6 +18,8 @@ import os
 import shutil
 import subprocess
 import sys
+from urllib.request import urlopen
+from urllib.error import URLError
 
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -33,7 +35,7 @@ autodoc_mock_imports = ['sip', 'PyQt5', 'PyQt5.QtGui', 'PyQt5.QtCore',
 # Define pychemqt environment
 os.environ["pychemqt"] = os.path.abspath('../')
 os.environ["freesteam"] = "False"
-os.environ["pybel"] = "False"
+os.environ["openbabel"] = "False"
 os.environ["CoolProp"] = "False"
 os.environ["refprop"] = "False"
 os.environ["ezodf"] = "False"
@@ -124,7 +126,7 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.autosummary',
-    'sphinx.ext.napoleon',
+    # 'sphinx.ext.napoleon',
     'numpydoc',
 ]
 
@@ -144,7 +146,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pychemqt'
-copyright = u'2018, Juan José Gómez Romera'
+copyright = u'2019, Juan José Gómez Romera'
 author = u'Juan José Gómez Romera'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -205,14 +207,18 @@ todo_include_todos = True
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinx_rtd_theme'
+# html_theme = 'sphinx_rtd_theme'
+html_theme = 'nature'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-html_theme_options = {
-        "display_version": False,
-        }
+# html_theme_options = {
+        # "display_version": False,
+        # 'navigation_depth': 5,
+        # 'collapse_navigation': False,
+        # 'includehidden': False,
+        # }
 
 # Add any paths that contain custom themes here, relative to this directory.
 # html_theme_path = []
@@ -401,6 +407,12 @@ autodoc_default_options = {
     'undoc-members': None,
 }
 
+# Let mathjax render expression without internet conection
+try:
+    response = urlopen('https://www.google.com/', timeout=10)
+except URLError:
+    mathjax_path = '/usr/share/javascript/mathjax/MathJax.js?config=default.js'
+
 
 def setup(app):
     # Avoid print the copyright intro in each module documentation
@@ -419,3 +431,6 @@ def Autogenerate_MEoS(app):
     print('cd .. && python3 docs/generateMEOSrst.py')
     subprocess.check_output(
         ['bash', '-c', 'cd .. && python3 docs/generateMEOSrst.py'])
+    print('cd .. && python3 docs/generateEoSrst.py')
+    subprocess.check_output(
+        ['bash', '-c', 'cd .. && python3 docs/generateEoSrst.py'])

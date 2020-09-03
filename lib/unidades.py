@@ -238,13 +238,13 @@ class unidad(float):
         logging.debug("%s, %f" % (self.__class__.__name__, self._data))
 
     def __new__(cls, data, unit="", magnitud=""):
-        """Constructor to let multiple paramter input in float"""
+        """Constructor to let multiple parameter input in float"""
         if not magnitud:
             magnitud = cls.__name__
         if data is None:
             data = 0
         elif unit:
-            data = cls._getBaseValue(data, unit, magnitud)
+            data = cls._getBaseValue(float(data), unit, magnitud)
 
         return float.__new__(cls, data)
 
@@ -354,7 +354,7 @@ with support for class unidad operations: txt, config. func."""
             self._data = 0
             self.code = "n/a"
         else:
-            self._data = data
+            self._data = float(data)
             self.code = ""
         logging.debug("%s, %f" % (self.__class__.__name__, self._data))
 
@@ -1034,6 +1034,7 @@ class Pressure(unidad):
             self.code = "n/a"
         else:
             self.code = ""
+            data = float(data)
 
         if not magnitud:
             magnitud = self.__class__.__name__
@@ -2273,7 +2274,7 @@ for _clas in _all:
         doc += os.linesep + os.linesep
 
     # Add doctest example
-    doc += "Example" + os.linesep
+    doc += "Examples" + os.linesep
     doc += "--------" + os.linesep + os.linesep
     title = _clas.__name__
     for test in _clas.__test__:

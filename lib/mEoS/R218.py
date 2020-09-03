@@ -50,7 +50,6 @@ class R218(MEoS):
            "titao": [326/Tc, 595/Tc, 1489/Tc]}
 
     CP1 = {"ao": 4.,
-           "an": [], "pow": [],
            "ao_exp": [7.2198, 7.2692, 11.599], "exp": [326, 595, 1489]}
 
     lemmon = {
@@ -80,6 +79,7 @@ class R218(MEoS):
         "gamma2": [1]*7}
 
     eq = lemmon,
+    _PR = [-0.3225, -15.1811]
 
     _surface = {"sigma": [0.04322], "exp": [1.224]}
     _vapor_Pressure = {

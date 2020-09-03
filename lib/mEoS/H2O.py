@@ -77,7 +77,7 @@ class H2O(MEoS):
 
     iapws = {
         "__type__": "Helmholtz",
-        "__name__": u"Helmholtz equation of state for water of Wagner and"
+        "__name__": u"Helmholtz equation of state for water of Wagner and "
                     u"Pruß (2002).",
         "__doi__": {"autor": u"Wagner, W., Pruß, A.",
                     "title": "The IAPWS Formulation 1995 for the Thermodynamic"
@@ -294,7 +294,7 @@ class H2O(MEoS):
         "gamma2": [1]*8}
 
     eq = iapws, GERG, saul, saul2, sun
-    _PR = 0.0043451
+    _PR = [0.1994, -30.0536]
 
     _surface = {"sigma": [-0.1306, 0.2151], "exp": [2.471, 1.233]}
     _melting = {"Tmin": 251.165, "Tmax": 370.0}

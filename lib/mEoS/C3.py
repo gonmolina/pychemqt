@@ -59,8 +59,6 @@ class C3(MEoS):
            "ao_cosh": [3.197, -8.37267], "cosh": [200.893/Tc, 1027.29/Tc]}
 
     CP1 = {"ao": 4.02939,
-           "an": [], "pow": [],
-           "ao_exp": [], "exp": [],
            "ao_sinh": [6.60569, 19.1921], "sinh": [479.856, 955.312],
            "ao_cosh": [3.197, -8.37267], "cosh": [200.893, 1027.29]}
 
@@ -310,6 +308,7 @@ class C3(MEoS):
         "gamma2": [1]*8}
 
     eq = lemmon, younglove, buecker, GERG, miyamoto, shortSpan, sun
+    _PR = [-0.2124, -14.8203]
 
     _surface = {"sigma": [0.05334, -0.01748], "exp": [1.235, 4.404]}
 

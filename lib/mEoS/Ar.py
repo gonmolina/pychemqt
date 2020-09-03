@@ -50,16 +50,13 @@ class Ar(MEoS):
 
     Fi1 = {"ao_log": [1, 1.5],
            "pow": [0, 1],
-           "ao_pow": [8.31666243, -4.94651164],
-           "ao_exp": [], "titao": []}
+           "ao_pow": [8.31666243, -4.94651164]}
 
-    CP1 = {"ao": 2.5,
-           "an": [], "pow": [], "ao_exp": [], "exp": []}
+    CP1 = {"ao": 2.5}
 
     Fi2 = {"ao_log": [1, 1.5],
            "pow": [0, 1],
-           "ao_pow": [8.3166315, -4.9465026],
-           "ao_exp": [], "titao": []}
+           "ao_pow": [8.3166315, -4.9465026]}
 
     tegeler = {
         "__type__": "Helmholtz",
@@ -240,7 +237,7 @@ class Ar(MEoS):
               -0.1492178536e-9, -0.1001356071e-7, 0.2933963216e-6]}
 
     eq = tegeler, younglove, GERG, stewart, shortSpan
-    _PR = -0.0034
+    _PR = [-0.7976, -11.5724]
 
     _surface = {"sigma": [0.037], "exp": [1.25]}
     _dielectric = {

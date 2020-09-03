@@ -76,11 +76,12 @@ from math import pi
 
 from numpy.linalg import solve
 from scipy import log, log10, exp
+from scipy.constants import R
 
 from lib.compuestos import (Componente, RhoL_Costald, RhoL_AaltoKeskinen,
                             RhoL_TaitCostald, RhoL_Nasrifar, MuG_DeanStiel,
                             MuG_API, ThG_StielThodos)
-from lib.physics import R_atml, R, Collision_Neufeld
+from lib.physics import R_atml, Collision_Neufeld
 from lib import unidades, config
 from lib.utilities import refDoc
 
@@ -703,6 +704,9 @@ def RhoL_AaltoKeskinenMix(T, P, xi, Tci, Pci, Vci, wi, Mi, rhos):
     # Eq A5
     wm = 0
     for x, w in zip(xi, wi):
+        # Avoid problem with square root of negative number, hydrogen, methane
+        if w < 0:
+            w = 0
         wm += x*w**0.5
     wm *= wm
 
@@ -3269,7 +3273,7 @@ class Mezcla(config.Entity):
 
     Parameters
     ----------
-    tipo: int
+    tipo : int
         kind of mix definition:
 
             * 0 : Undefined
@@ -3279,6 +3283,11 @@ class Mezcla(config.Entity):
             * 4 : Mass flow and mass fractions
             * 5 : Molar flow and molar fractions
             * 6 : Molar flow and mass fractions
+
+    ids : list
+        Index of component in database, [-]
+    customCmp : list
+        List with additional component defined out of main database
     fraccionMolar: list
         Molar fraccion list of compounds, [-]
     fraccionMasica: list
@@ -3397,7 +3406,7 @@ class Mezcla(config.Entity):
     >>> "%0.4f %0.4f" % (c0.ThCond_Gas(*args), c1.ThCond_Gas(*args))
     '0.0187 0.0197'
     >>> "%0.4f" % c2.ThCond_Gas(*args)
-    '0.0223'
+    '0.0224'
 
     Example 10-6 from [3]_; 75.5% methane, 24.5% CO2 at 370.8K and 174.8bar
     Here the Chung method is the best option to get the low pressure thermal
@@ -3414,7 +3423,9 @@ class Mezcla(config.Entity):
     >>> "%0.4f" % c2.ThCond_Gas(*args)
     '0.0580'
     """
-    kwargs = {"caudalMasico": 0.0,
+    kwargs = {"ids": [],
+              "customCmp": [],
+              "caudalMasico": 0.0,
               "caudalMolar": 0.0,
               "caudalUnitarioMolar": [],
               "caudalUnitarioMasico": [],
@@ -3458,6 +3469,9 @@ class Mezcla(config.Entity):
         self.Config = config.getMainWindowConfig()
         if self.kwargs["ids"]:
             self.ids = self.kwargs.get("ids")
+        elif self.kwargs["customCmp"]:
+            # Initialice ids variable to avoid acumulate in several instances
+            self.ids = []
         else:
             txt = self.Config.get("Components", "Components")
             if isinstance(txt, str):
@@ -3465,6 +3479,10 @@ class Mezcla(config.Entity):
             else:
                 self.ids = txt
         self.componente = [Componente(int(i), **kwargs) for i in self.ids]
+        for cmp in self.kwargs["customCmp"]:
+            self.componente.append(cmp)
+            self.ids.append(0)
+
         fraccionMolar = self.kwargs.get("fraccionMolar", None)
         fraccionMasica = self.kwargs.get("fraccionMasica", None)
         caudalMasico = self.kwargs.get("caudalMasico", None)
@@ -3592,8 +3610,18 @@ class Mezcla(config.Entity):
             array.append(value)
         return array
 
+    @refDoc(__doi__, [2], tab=8)
     def _Ho(self, T):
-        """Ideal gas enthalpy"""
+        r"""Ideal gas enthalpy, referenced in API procedure 7B4.1, pag 645
+        
+        .. math::
+            H_m^o = \sum_i x_wH_i^o
+
+        Parameters
+        ----------
+        T : float
+            Temperature, [K]
+        """
         h = 0
         for xw, cmp in zip(self.fraccion_masica, self.componente):
             h += xw*cmp._Ho(T)
@@ -3623,6 +3651,13 @@ class Mezcla(config.Entity):
         Cp = 0
         for xi, cmp in zip(self.fraccion_masica, self.componente):
             Cp += xi*cmp.Cp_Gas_DIPPR(T)
+        return unidades.SpecificHeat(Cp)
+
+    def Cp_Liquido(self, T):
+        """Calculate specific heat from liquid, API procedure 7D1.9, pag 714"""
+        Cp = 0
+        for xi, cmp in zip(self.fraccion_masica, self.componente):
+            Cp += xi*cmp.Cp_Liquido(T)
         return unidades.SpecificHeat(Cp)
 
     def RhoL(self, T, P):
@@ -3795,7 +3830,7 @@ class Mezcla(config.Entity):
         return unidades.Tension(tension)
 
     def ThCond_Liquido(self, T, P, rho):
-        """General method for calculate surface tension"""
+        """General method for calculate thermal conductivity of liquid"""
         method = self.kwargs["ThCondLMix"]
         if method is None or method >= len(Mezcla.METHODS_ThL):
             method = self.Config.getint("Transport", "ThCondLMix")
@@ -3934,3 +3969,15 @@ class Mezcla(config.Entity):
 # TODO:
 # ThL_Rowley
 # Parachor method for tension
+
+
+if __name__ == '__main__':
+    # T = unidades.Temperature(400, "F")
+    # mezcla = Mezcla(1, ids=[4, 40], caudalUnitarioMasico=[26.92, 73.08])
+    # print(mezcla.Tension(T))
+
+    mezcla = Mezcla(2, ids=[1, 2, 40, 41], caudalUnitarioMolar=[
+        0.004397674808848511, 0.057137022156057246, 0.7079892468704139, 0.23047605616468061])
+    P = unidades.Pressure(485, "psi")
+    T = unidades.Temperature(100, "F")
+    print(mezcla.RhoL(T, P))

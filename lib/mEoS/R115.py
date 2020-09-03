@@ -44,13 +44,11 @@ class R115(MEoS):
     id = 229
 
     CP1 = {"ao": 4,
-           "an": [], "pow": [],
            "ao_exp": [7.142, 10.61], "exp": [289, 1301]}
 
     CP2 = {"ao": 2.4409547,
            "an": [0.053544743, -0.81861429e-4, 0.10410538e-6, -0.71645701e-10],
-           "pow": [1, 2, 3, 4],
-           "ao_exp": [], "exp": []}
+           "pow": [1, 2, 3, 4]}
 
     lemmon = {
         "__type__": "Helmholtz",
@@ -110,6 +108,7 @@ class R115(MEoS):
         "gamma2": [1.50553819]*6}
 
     eq = lemmon, platzer
+    _PR = [-0.1373, -19.0]
 
     _surface = {"sigma": [0.04771], "exp": [1.246]}
     _vapor_Pressure = {

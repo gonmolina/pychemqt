@@ -57,7 +57,6 @@ class CO2(MEoS):
            "ao_cosh": [-1.06044, 0.01393], "cosh": [-2.844425476, 1.12159609]}
 
     CP3 = {"ao": 3.5,
-           "an": [], "pow": [],
            "ao_exp": [2, 1, 1], "exp": [960.11, 1932, 3380.2]}
 
     span = {
@@ -279,6 +278,7 @@ class CO2(MEoS):
         "gamma2": [1]*8}
 
     eq = span, MBWR, GERG, ely, shortSpan, sun
+    _PR = [-0.16, -16.4341]
 
     _surface = {"sigma": [0.07863], "exp": [1.254]}
     _dielectric = {

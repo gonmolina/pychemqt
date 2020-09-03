@@ -166,12 +166,14 @@ from scipy.optimize import fsolve
 
 from lib import unidades
 from lib.config import conf_dir
-from lib.utilities import SimpleEq
-from lib.physics import R_atml, Collision_Neufeld
-from lib.thermo import ThermoAdvanced
 from lib.compuestos import RhoL_Costald, Pv_Lee_Kesler, MuG_Chung, MuG_P_Chung
 from lib.compuestos import ThG_Chung, ThG_P_Chung, Tension_Pitzer
-from lib.utilities import refDoc
+from lib.EoS.cubic import CubicHelmholtz
+from lib.EoS.Cubic import PR
+from lib.mezcla import Mezcla
+from lib.physics import Collision_Neufeld
+from lib.thermo import ThermoAdvanced
+from lib.utilities import SimpleEq, refDoc
 
 
 __doi__ = {
@@ -248,10 +250,11 @@ __doi__ = {
          "ref": "Ind. Eng. Chem. Fund. 15(1) (1976) 59-64",
          "doi": "10.1021/i160057a011"},
     13:
-        {"autor": "Péneloux, A, Rauzy, E., Frèze, R.",
-         "title": "A Consistent Correction for Redlich-Kwong-Soave Volumes",
-         "ref": "Fluid Phase Equilibria 8 (1982) 7-23",
-         "doi": "10.1016/0378-3812(82)80002-2"},
+        {"autor": "Lin, H., Duan, Y.-Y.",
+         "title": "Empirical correction to the Peng-Robinson equation of "
+                  "state for the saturated region",
+         "ref": "Fluid Phase Equilibria 233 (2005) 194-203",
+         "doi": "10.1016/j.fluid.2005.05.008"},
     14:
         {"autor": "Bell, I.H., Jäger, A.",
          "title": "Helmholtz Energy Transformations of Common Cubic Equations "
@@ -411,72 +414,6 @@ def _Helmholtz_phir(tau, delta, coef):
             fir += factor*fr
 
     return fir
-
-
-def _MBWR_phir(T, rho, rhoc, M, coef):
-    r"""Residual contribution to the free Helmholtz energy for MBWR EoS
-
-    Parameters
-    ----------
-    T : float
-        Temperature, [K]
-    rho : float
-        Density, [kg/m³]
-    rhoc : float
-        Critical density, [kg/m³]
-    M : float
-        Molecular weight, [g/mol]
-    coef : dict
-        Parameters of MBWR equation of state
-
-    Returns
-    -------
-    fir : float
-        :math:`\phi^r`, adimensional free Helmholtz energy, [-]
-    """
-    rhocm = rhoc/M
-    delta = rho/rhoc
-    rhom = rho/M
-    b = coef["b"]
-    R = coef["R"]
-
-    # Equation B2
-    a = [None]
-    # Use the gas constant in l·bar/mol·K
-    a.append(R/100*T)
-    a.append(b[1]*T + b[2]*T**0.5 + b[3] + b[4]/T + b[5]/T**2)
-    a.append(b[6]*T + b[7] + b[8]/T + b[9]/T**2)
-    a.append(b[10]*T + b[11] + b[12]/T)
-    a.append(b[13])
-    a.append(b[14]/T + b[15]/T**2)
-    a.append(b[16]/T)
-    a.append(b[17]/T + b[18]/T**2)
-    a.append(b[19]/T**2)
-    a.append(b[20]/T**2 + b[21]/T**3)
-    a.append(b[22]/T**2 + b[23]/T**4)
-    a.append(b[24]/T**2 + b[25]/T**3)
-    a.append(b[26]/T**2 + b[27]/T**4)
-    a.append(b[28]/T**2 + b[29]/T**3)
-    a.append(b[30]/T**2 + b[31]/T**3 + b[32]/T**4)
-
-    # Eq B6
-    A = 0
-    for n in range(2, 10):
-        A += a[n]/(n-1)*rhom**(n-1)
-
-    A -= 0.5*a[10]*rhocm**2*(exp(-delta**2)-1)
-    A -= 0.5*a[11]*rhocm**4*(exp(-delta**2)*(delta**2+1)-1)
-    A -= 0.5*a[12]*rhocm**6*(exp(-delta**2)*(
-        delta**4+2*delta**2+2)-2)
-    A -= 0.5*a[13]*rhocm**8*(exp(-delta**2)*(
-        delta**6+3*delta**4+6*delta**2+6)-6)
-    A -= 0.5*a[14]*rhocm**10*(exp(-delta**2)*(
-        delta**8+4*delta**6+12*delta**4+24*delta**2+24)-24)
-    A -= 0.5*a[15]*rhocm**12*(exp(-delta**2)*(
-        delta**10+5*delta**8+20*delta**6+60*delta**4+120*delta**2+120)-120)
-    A = A*100  # Convert from L·bar/mol to J/mol
-
-    return A/R/T
 
 
 def _Helmholtz_phird(tau, delta, coef):
@@ -888,6 +825,118 @@ def _MBWR_phirt(T, Tc, rho, rhoc, M, coef):
     return (A/T-dAT)/R/tau
 
 
+def _PR_phir(tau, delta, **kw):
+    r"""Residual contribution to the free Helmholtz energy from a generic cubic
+    equation of state with the form:
+
+    Parameters
+    ----------
+    tau : float
+        Inverse reduced temperature, Tc/T [-]
+    delta : float
+        Reduced density, rho/rhoc [-]
+    kw : list
+        Aditional parameters specific of cubic equation of state. The
+        parameters include: rhoc, Tc, b, alfa, Delta1, Delta2
+
+    Returns
+    -------
+    fir : float
+        :math:`\phi^r`, adimensional free Helmholtz energy, [-]
+    """
+    rhoc = kw.get("rhoc", 1)
+    Tc = kw.get("Tc", 1)
+    b = kw["b"]
+    alfa = kw["a"]
+    Delta1 = kw["Delta1"]
+    Delta2 = kw["Delta2"]
+
+    phi1 = -log(1-b*delta*rhoc)
+    if Delta1 == Delta2:
+        # Special case using the l'Hôpital's rule
+        phi2 = log((Delta1*b*rhoc*delta+1)/(Delta2*b*rhoc*delta+1)) / \
+            b/(Delta1-Delta2)
+    else:
+        phi2 = rhoc*delta
+
+    fir = phi1-tau*alfa/R/Tc*phi2
+
+    return fir
+
+
+def _PR_phird(tau, delta, **kw):
+    r"""Residual contribution to the free Helmholtz energy from a generic cubic
+    equation of state, delta derivative
+
+    Parameters
+    ----------
+    tau : float
+        Inverse reduced temperature, Tc/T [-]
+    delta : float
+        Reduced density, rho/rhoc [-]
+    kw : list
+        Aditional parameters specific of cubic equation of state. The
+        parameters include: rhoc, Tc, b, alfa, Delta1, Delta2
+
+    Returns
+    -------
+    fird : float
+        :math:`\left.\frac{\partial \phi^r}{\partial \delta}\right|_{\tau}`
+    """
+    rhoc = kw.get("rhoc", 1)
+    Tc = kw.get("Tc", 1)
+    b = kw["b"]
+    a = kw["a"]
+    Delta1 = kw["Delta1"]
+    Delta2 = kw["Delta2"]
+
+    phi1d = b*rhoc/(1-b*delta*rhoc)
+    PI12 = (1+Delta1*b*rhoc*delta) * (1+Delta2*b*rhoc*delta)
+    phi2d = rhoc/PI12
+
+    fird = phi1d - tau*a/R/Tc*phi2d
+
+    return fird
+
+
+def _PR_phirt(tau, delta, **kw):
+    r"""Residual contribution to the free Helmholtz energy from a generic cubic
+    equation of state, tau derivative
+
+    Parameters
+    ----------
+    tau : float
+        Inverse reduced temperature, Tc/T [-]
+    delta : float
+        Reduced density, rho/rhoc [-]
+    kw : list
+        Aditional parameters specific of cubic equation of state. The
+        parameters include: rhoc, Tc, b, alfa, Delta1, Delta2
+
+    Returns
+    -------
+    firt : float
+        :math:`\left.\frac{\partial \phi^r}{\partial \tau}\right|_{\delta}`
+    """
+    rhoc = kw.get("rhoc", 1)
+    b = kw["b"]
+    alfa = kw["a"]
+    dat = kw["at"]
+    Delta1 = kw["Delta1"]
+    Delta2 = kw["Delta2"]
+
+    if Delta1 == Delta2:
+        # Special case using the l'Hôpital's rule
+        phi2 = log((Delta1*b*rhoc*delta+1)/(Delta2*b*rhoc*delta+1)) / \
+            b/(Delta1-Delta2)
+    else:
+        phi2 = rhoc*delta
+
+    dtat = tau*dat + alfa
+    firt = -dtat/R*tau * phi2
+    return firt
+
+
 class MEoS(ThermoAdvanced):
     r"""General class for implement multiparameter equation of state
     Each child class must define the parameters for the calculations
@@ -931,7 +980,7 @@ class MEoS(ThermoAdvanced):
 
     Parameters necessary only for special EoS:
 
-        * _PR: Peneloux volume correction for Peng-Robinson equation of state
+        * _PR: Lin-Duan volume correction for Peng-Robinson equation of state
         * _Tr: Temperature parameter for generalized equation
         * _rhor: Density parameter for generalized equation
         * _w: Acentric factor for generalized equation
@@ -945,7 +994,7 @@ class MEoS(ThermoAdvanced):
     _w = None
 
     eq = ()
-    _PR = 0.
+    _PR = None
 
     _dielectric = None
     _melting = None
@@ -1193,7 +1242,7 @@ class MEoS(ThermoAdvanced):
         elif eq == "GERG":
             try:
                 self._constants = self.GERG
-            except:
+            except AttributeError:
                 self._constants = self.eq[0]
         elif self.eq[eq]["__type__"] == "Helmholtz":
             self._constants = self.eq[eq]
@@ -1206,9 +1255,9 @@ class MEoS(ThermoAdvanced):
         visco = self.kwargs["visco"]
         thermal = self.kwargs["thermal"]
         if self._viscosity:
-            self._viscosity = self._viscosity[visco]
+            self._viscosity = self.__class__._viscosity[visco]
         if self._thermal:
-            self._thermal = self._thermal[thermal]
+            self._thermal = self.__class__._thermal[thermal]
 
         # Configure custom parameter from eq
         if "M" in self._constants:
@@ -1338,31 +1387,43 @@ class MEoS(ThermoAdvanced):
 
         # Procedure for each input option
         if self._mode == "T-P":
-            tau = self.Tc/T
-            rhoo = []
-            if self.kwargs["rho0"]:
-                rhoo.append(self.kwargs["rho0"])
-            if T < self.Tc:
-                Pv = self._Vapor_Pressure(T)
-                rhov = self._Vapor_Density(T)
-                rhol = self._Liquid_Density(T)
-                if P > Pv:
-                    rhoo.append(rhol)
+
+            if self._code == "PR":
+                # Using direct rho calculation from cubic EoS
+                mix = Mezcla(2, ids=[self.id], caudalUnitarioMolar=[1])
+                eq = PR(T, P, mix)
+                if eq.x:
+                    rho = eq.rhoG
                 else:
-                    rhoo.append(rhov)
+                    rho = eq.rhoL
+                rho *= self.M
+
             else:
-                rhoo.append(self._Liquid_Density(self.Tc))
+                tau = self.Tc/T
+                rhoo = []
+                if self.kwargs["rho0"]:
+                    rhoo.append(self.kwargs["rho0"])
+                if T < self.Tc:
+                    Pv = self._Vapor_Pressure(T)
+                    rhov = self._Vapor_Density(T)
+                    rhol = self._Liquid_Density(T)
+                    if P > Pv:
+                        rhoo.append(rhol)
+                    else:
+                        rhoo.append(rhov)
+                else:
+                    rhoo.append(self._Liquid_Density(self.Tc))
 
-            rhoo.append(self._constants["rhomax"]*self.M)
-            rhoo.append(self.rhoc)
-            rhoo.append(P/T/self.R)
+                rhoo.append(self._constants["rhomax"]*self.M)
+                rhoo.append(self.rhoc)
+                rhoo.append(P/T/self.R)
 
-            def f(rho):
-                delta = rho/self.rhoc
-                fird = self._phird(tau, delta)
-                return (1+delta*fird)*self.R.kJkgK*T*rho - P/1000
-            prop = self.fsolve(f, **{"P": P, "T": T, "rho0": rhoo})
-            rho = prop["rho"]
+                def f(rho):
+                    delta = rho/self.rhoc
+                    fird = self._phird(tau, delta)
+                    return (1+delta*fird)*self.R.kJkgK*T*rho - P/1000
+                prop = self.fsolve(f, **{"P": P, "T": T, "rho0": rhoo})
+                rho = prop["rho"]
 
         elif self._mode == "T-rho":
             # In this mode only check possible two phases region
@@ -2262,6 +2323,9 @@ class MEoS(ThermoAdvanced):
         if x == 0:
             rhoL = rho
             liquido = self._eq(rhoL, T)
+            if self._code == "PR":
+                v = self.vtPR(rhoL, T)
+                liquido["v"] = v
             propiedades = liquido
         elif x == 1:
             rhoG = rho
@@ -2270,6 +2334,9 @@ class MEoS(ThermoAdvanced):
         else:
             liquido = self._eq(rhoL, T)
             vapor = self._eq(rhoG, T)
+            if self._code == "PR":
+                v = self.vtPR(rhoL, T)
+                liquido["v"] = v
 
         if self.kwargs["P"]:
             P = self.kwargs["P"]
@@ -2726,6 +2793,8 @@ class MEoS(ThermoAdvanced):
 
         if self._code == "PR":
             res = self._PengRobinson(rho, T)
+            delta *= 1000/self.M
+            prop["P"] = (1+delta*res["fird"])*self.R*T*rho
 
         elif self._constants["__type__"] == "Helmholtz":
             res = self._Helmholtz(tau, delta)
@@ -2733,18 +2802,18 @@ class MEoS(ThermoAdvanced):
 
         elif self._constants["__type__"] == "MBWR":
             res = self._MBWR(rho, T)
-        else:
-            pass
 
         prop.update(res)
 
         prop["tau"] = tau
         prop["delta"] = delta
         prop["T"] = T
+
         if rho:
-            prop["v"] = 1./rho
+            v = 1./rho
         else:
-            prop["v"] = float("inf")
+            v = float("inf")
+        prop["v"] = v
 
         return prop
 
@@ -2764,7 +2833,7 @@ class MEoS(ThermoAdvanced):
             Tr = 1/tau
             m = 0.37464+1.54226*self.f_acent-0.26992*self.f_acent**2
             alfa = a*(1+m*(1-Tr**0.5))**2
-            kw["alfa"] = alfa
+            kw["a"] = alfa
 
             fir = _PR_phir(tau, delta, **kw)
 
@@ -2773,14 +2842,13 @@ class MEoS(ThermoAdvanced):
 
         elif self._constants["__type__"] == "MBWR":
             T = self.Tc/tau
-            rho = delta*self.rhoc
 
             if "gamma" in self._constants:
                 rhocm = 1/(-self._constants["gamma"])**0.5
                 rhoc = rhocm*self.M
             else:
                 rhoc = self.rhoc
-                rhocm = rhoc/self.M
+            rho = delta*rhoc
 
             fir = _MBWR_phir(T, rho, rhoc, self.M, self._constants)
         return fir
@@ -2790,7 +2858,8 @@ class MEoS(ThermoAdvanced):
         derivative"""
         if self._code == "PR":
             kw = {}
-            kw["rhoc"] = self.rhoc
+            kw["rhoc"] = self.rhoc/self.M
+            kw["Tc"] = self.Tc
 
             kw["b"] = 0.0778*R*self.Tc/self.Pc
             kw["Delta1"] = 1+2**0.5
@@ -2801,7 +2870,7 @@ class MEoS(ThermoAdvanced):
             Tr = 1/tau
             m = 0.37464+1.54226*self.f_acent-0.26992*self.f_acent**2
             alfa = a*(1+m*(1-Tr**0.5))**2
-            kw["alfa"] = alfa
+            kw["a"] = alfa
             fir = _PR_phird(tau, delta, **kw)
 
         elif self._constants["__type__"] == "Helmholtz":
@@ -2826,6 +2895,7 @@ class MEoS(ThermoAdvanced):
         if self._code == "PR":
             kw = {}
             kw["rhoc"] = self.rhoc
+            kw["Tc"] = self.Tc
 
             kw["b"] = 0.0778*R*self.Tc/self.Pc
             kw["Delta1"] = 1+2**0.5
@@ -2836,7 +2906,7 @@ class MEoS(ThermoAdvanced):
             Tr = 1/tau
             m = 0.37464+1.54226*self.f_acent-0.26992*self.f_acent**2
             alfa = a*(1+m*(1-Tr**0.5))**2
-            kw["alfa"] = alfa
+            kw["a"] = alfa
             fir = _PR_phirt(tau, delta, **kw)
 
         elif self._constants["__type__"] == "Helmholtz":
@@ -2929,7 +2999,7 @@ class MEoS(ThermoAdvanced):
                 * so: Entropy in reference state, [kJ/kg·K]
         """
         # Variable to avoid rewrite and save the h-s offset status application
-        applyOffset = "ao" in self._constants["cp"] or ref is not None
+        applyOffset = "ao_log" not in self._constants["cp"] or ref is not None
 
         if ref is None:
             rf = self._constants["ref"]
@@ -3050,19 +3120,23 @@ class MEoS(ThermoAdvanced):
     def _PHIO(self, cp):
         """Convert cp dict in phi0 dict when the cp expression isn't in
         Helmholtz free energy terms"""
-        co = cp["ao"]-1
+        co = cp.get("ao", 0) - 1
         ti = []
         ci = []
         taulogtau = 0
-        for n, t in zip(cp["an"], cp["pow"]):
-            if t == -1:
-                # Special case of tau*logtau term
-                taulogtau = -n/self.Tc
-            else:
-                ti.append(-t)
-                ci.append(-n/(t*(t+1))*self.Tc**t)
+        if "an" in cp:
+            for n, t in zip(cp["an"], cp["pow"]):
+                if t == -1:
+                    # Special case of tau*logtau term
+                    taulogtau = -n/self.Tc
+                else:
+                    ti.append(-t)
+                    ci.append(-n/(t*(t+1))*self.Tc**t)
 
-        titao = [fi/self.Tc for fi in cp["exp"]]
+        titao = []
+        if "exp" in cp:
+            titao = [fi/self.Tc for fi in cp["exp"]]
+
         sinh = [fi/self.Tc for fi in cp.get("sinh", [])]
         cosh = [fi/self.Tc for fi in cp.get("cosh", [])]
 
@@ -3075,7 +3149,7 @@ class MEoS(ThermoAdvanced):
         Fi0 = {"ao_log": [1,  co],
                "pow": [0, 1] + ti,
                "ao_pow": [cII, cI] + ci,
-               "ao_exp": cp["ao_exp"],
+               "ao_exp": cp.get("ao_exp", []),
                "titao": titao,
                "ao_sinh": cp.get("ao_sinh", []),
                "sinh": sinh,
@@ -3148,17 +3222,19 @@ class MEoS(ThermoAdvanced):
         fiodt = 0
 
         R_ = cp.get("R", self._constants["R"])
-        for n, t in zip(Fi0["ao_pow"], Fi0["pow"]):
-            fio += n*tau**t
-            if t != 0:
-                fiot += t*n*tau**(t-1)
-            if t not in [0, 1]:
-                fiott += n*t*(t-1)*tau**(t-2)
+        if "pow" in Fi0:
+            for n, t in zip(Fi0["ao_pow"], Fi0["pow"]):
+                fio += n*tau**t
+                if t != 0:
+                    fiot += t*n*tau**(t-1)
+                if t not in [0, 1]:
+                    fiott += n*t*(t-1)*tau**(t-2)
 
-        for n, g in zip(Fi0["ao_exp"], Fi0["titao"]):
-            fio += n*log(1-exp(-g*tau))
-            fiot += n*g*((1-exp(-g*tau))**-1-1)
-            fiott -= n*g**2*exp(-g*tau)*(1-exp(-g*tau))**-2
+        if "ao_exp" in Fi0:
+            for n, g in zip(Fi0["ao_exp"], Fi0["titao"]):
+                fio += n*log(1-exp(-g*tau))
+                fiot += n*g*((1-exp(-g*tau))**-1-1)
+                fiott -= n*g**2*exp(-g*tau)*(1-exp(-g*tau))**-2
 
         # Special case for τ·ln(τ) terms (i.e. undecane, D2O)
         if "tau*logtau" in Fi0:
@@ -3728,6 +3804,86 @@ class MEoS(ThermoAdvanced):
 
         return prop
 
+    @refDoc(__doi__, [12, 13, 14], tab=8)
+    def _PengRobinson(self, rho, T):
+        r"""Residual contribution to the free Helmholtz energy and derivatives
+        for Peng-Robinson cubic equation of state as explain in [12]_.
+        Optionally can use the Lin-Duan volume correction as explain in [13]_
+        Helmholtz energy and derivatives calculation defined in [14]_.
+
+        Parameters
+        ----------
+        rho : float
+            Density, [kg/m³]
+        T : float
+            Temperature, [K]
+
+        Returns
+        -------
+        prop : dict
+            Dictionary with residual adimensional helmholtz energy and
+            derivatives:
+                * fir  [-]
+                * firt: [∂fir/∂τ]δ,x  [-]
+                * fird: [∂fir/∂δ]τ,x  [-]
+                * firtt: [∂²fir/∂τ²]δ,x  [-]
+                * firdt: [∂²fir/∂τ∂δ]x  [-]
+                * firdd: [∂²fir/∂δ²]τ,x  [-]
+        """
+        Tc = self.Tc
+
+        delta = rho/self.rhoc/self.M*1000
+        tau = Tc/T
+
+        kw = {}
+        kw["rhoc"] = self.rhoc
+        kw["Tc"] = self.Tc
+
+        kw["b"] = 0.0778*R*self.Tc/self.Pc
+        kw["Delta1"] = 1+2**0.5
+        kw["Delta2"] = 1-2**0.5
+
+        a = 0.457235*R**2*self.Tc**2/self.Pc
+
+        m = 0.37464+1.54226*self.f_acent-0.26992*self.f_acent**2
+        alfa = a*(1+m*(1-(T/Tc)**0.5))**2
+        B = 1+m*(1-1/tau**0.5)
+        kw["a"] = alfa
+        kw["dat"] = a*m*B/tau**1.5
+        kw["datt"] = a*m/2*(m*Tc/tau**3/Tc-3*B/tau**2.5)
+        kw["dattt"] = 3*a*m/4*(-3*m*Tc/tau**4/Tc+5*B/tau**3.5)
+
+        prop = CubicHelmholtz(tau, delta, **kw)
+
+        return prop
+
+    @refDoc(__doi__, [13], tab=8)
+    def vtPR(self, rho, T):
+        """Volume translation for Peng-Robinson equation of state for liquid
+        phase as explain in [13]_
+
+        Returns
+        -------
+        v : float
+            Specific volume, [m³/kg]
+        """
+        from lib.EoS.Cubic.PRLinDuan import dat
+        if self.id in dat:
+            b, g = dat[self.id]
+        else:
+            # Generalized correlation
+            b = -2.8431*exp(-64.2184*(0.3074-self.Zc))+0.1735           # Eq 12
+            g = -99.2558+301.6201*self.Zc                               # Eq 13
+
+        Tr = T/self.Tc
+        f = b+(1-b)*exp(g*abs(1-Tr))                                    # Eq 10
+
+        cc = (0.3074-self.Zc)*self.R*self.Tc/self.Pc                    # Eq 9
+        c = cc * f                                                      # Eq 8
+
+        v = 1./rho-c                                                    # Eq 2
+        return v
+
     def derivative(self, z, x, y, fase):
         """Calculate generic partial derivative: (δz/δx)y
         where x, y, z can be: P, T, v, u, h, s, g, a"""
@@ -4037,8 +4193,8 @@ class MEoS(ThermoAdvanced):
             Pref = coef["Pref"]
             Tita = T/Tref
             suma = 0
-            if "a0" in cls._melting:
-                suma += cls._melting["a0"]
+            if "a0" in coef:
+                suma += coef["a0"]
 
             if "a1" in coef:
                 for a, t in zip(coef["a1"], coef["exp1"]):
@@ -4052,11 +4208,11 @@ class MEoS(ThermoAdvanced):
                 for a, t in zip(coef["a3"], coef["exp3"]):
                     suma += a*log(Tita)**t
 
-            if cls._sublimation["eq"] == 1:
+            if coef["eq"] == 1:
                 P = suma*Pref
-            elif cls._sublimation["eq"] == 2:
+            elif coef["eq"] == 2:
                 P = exp(suma)*Pref
-            elif cls._sublimation["eq"] == 3:
+            elif coef["eq"] == 3:
                 P = exp(Tref/T*suma)*Pref
             return unidades.Pressure(P)
         else:
@@ -5735,14 +5891,22 @@ if __name__ == "__main__":
 #    cPickle.dump(std, open("/home/jjgomera/Programacion/pychemqt/ASHRAE.pkl", "w"))
 
     # from lib.mEoS import Ethylene
-    # st = Ethylene(T=105, P=1e5, eq="jahangiri")
-    # st2 = Ethylene(T=105, P=1e5, eq="PR")
+    # st = Ethylene(T=105, P=1e5)
+    # print(st.rho)
+    # st2 = Ethylene(T=105, rho=653.7636, eq="PR")
     # print(st.x, st.h.kJkg, st.s.kJkgK, st.msg)
     # print(st2.x, st2.h.kJkg, st2.s.kJkgK, st2.msg)
-    # print(st._Cp0()*st.M)
 
-    from lib.mEoS import H2O
-    st = H2O(T=300, P=1e5)
-    print(st.rho, st.s)
-    st1 = H2O(T=300, s=st.s)
-    print(st.s, st1.s)
+    from lib.mEoS import nC5
+    st1 = nC5(T=300, P=1e6)
+    st2 = nC5(T=300, P=1e6, eq="PR")
+
+    for key in st1.propertiesPhase():
+        p1 = st1.__getattribute__(key)
+        p2 = st2.__getattribute__(key)
+        if isinstance(p1, list):
+            print(key, p1, p2)
+        elif p2 != 0:
+            print(key, p1, p2, "%0.2f%s" % ((p1-p2)/p2*100, "%"))
+        else:
+            print(key, p1, p2)

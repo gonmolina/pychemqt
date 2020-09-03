@@ -59,14 +59,12 @@ class R32(MEoS):
     CP2 = {"ao": 36.79959/8.314471,
            "an": [-0.06304821/8.314471, 3.757936e-4/8.314471,
                   -3.219812e-7/8.314471],
-           "pow": [1, 2, 3],
-           "ao_exp": [], "exp": []}
+           "pow": [1, 2, 3]}
 
     # Expression in tau term, dividing by Tc in all terms
     CP3 = {"ao": 4.3914,
            "an": [-2.5143/351.35, 5.3885/351.35**2, -1.6057/351.35*3],
-           "pow": [1, 2, 3],
-           "ao_exp": [], "exp": []}
+           "pow": [1, 2, 3]}
 
     tillner = {
         "__type__": "Helmholtz",
@@ -250,7 +248,7 @@ class R32(MEoS):
         "gamma2": [1]*14}
 
     eq = tillner, outcalt, shortSpan, astina, vasserman, sun
-    _PR = 0.00585
+    _PR = [0.18086, -25.5000]
 
     _surface = {"sigma": [0.07147], "exp": [1.246]}
 

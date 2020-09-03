@@ -46,8 +46,7 @@ class nC11(MEoS):
            "pow": [-3, -2, -1, 0, 1, 2],
            "ao_pow": [-3.515339, 28.27708, -136.8378, -46.40384, 107.1876,
                       1.419929],
-           "tau*logtau": -31.81246,
-           "ao_exp": [], "titao": []}
+           "tau*logtau": -31.81246}
 
     aleksandrov = {
         "__type__": "Helmholtz",
@@ -80,6 +79,7 @@ class nC11(MEoS):
         "gamma2": [1]*8}
 
     eq = aleksandrov,
+    _PR = [0.1099, -26.8035]
 
     _vapor_Pressure = {
         "eq": 3,

@@ -1684,7 +1684,7 @@ def Pv_Lee_Kesler(T, Tc, Pc, w):
 
 
 @refDoc(__doi__, [6, 1, 5, 7])
-def Pv_Wagner(T, args, Tc, Pc):
+def Pv_Wagner(T, Tc, Pc, args):
     r"""Calculates vapor pressure of a fluid using the Wagner correlation
 
     .. math::
@@ -2796,7 +2796,7 @@ def MuG_Lucas(T, P, Tc, Pc, Zc, M, D):
 
 @refDoc(__doi__, [51])
 def MuG_Jossi(Tc, Pc, rhoc, M, rho, muo):
-    r"""Calculate the viscosity of a compressed gas using the Lucas correlation
+    r"""Calculate the viscosity of a compressed gas using the Jossi correlation
 
     .. math::
         \left[\left(\mu-\mu^o\right)\xi_T+1\right]^{1/4}=1.023+0.23364\rho_r+
@@ -4515,6 +4515,48 @@ def Tension_Miqueu(T, Tc, Vc, M, w):
     return unidades.Tension(sigma, "mNm")
 
 
+@refDoc(__doi__, [1])
+def CpL_Poling(T, Tc, w, Cpgo):
+    r"""Calculate liquid isobaric heat capacitiy with the CSP method reported
+    in [1]_, Eq 6-6.
+
+    .. math::
+        \frac{C_p-C_p^o}{R} = 1.586 + \frac{0.49}{1-T_r} + \omega\left(4.2775 +
+        \frac{6.3\left(1-T_r\right)^{1/3}}{T_r} + \frac{0.4355}{1-T_r}\right)
+
+    Parameters
+    ----------
+    T : float
+        Temperature, [K]
+    Tc : float
+        Critical temperature, [K]
+    w : float
+        Acentric factor, [-]
+    Cpgo : float
+        Isobaric ideal gas heat capacity, [J/mol/K]
+
+    Returns
+    -------
+    Cplm : float
+        Liquid constant-pressure heat capacitiy, [J/mol/K]
+
+    Notes
+    -----
+    This correlation fail with associating compound
+
+    Examples
+    --------
+
+    Example 6-3 from [1]_, possible bug in reference
+
+    >>> "%0.1f" % CpL_Poling(350.0, 435.5, 0.203, 91.21)
+    '143.8'
+    """
+    Tr = T/Tc
+    Cpr = 1.586 + 0.49/(1-Tr) + \
+        w*(4.2775 + 6.3*(1-Tr)**(1/3)/Tr + 0.4355/(1-Tr))
+    return Cpgo + R*Cpr
+
 # Acentric factor
 @refDoc(__doi__, [4])
 def facent_LeeKesler(Tb, Tc, Pc):
@@ -5017,6 +5059,8 @@ class Componente(object):
         if not id:
             return
 
+        # FIXME DATABASE: Meanwhile check type here
+
         self._bool = True
         self.id = id
         self.kwargs = Componente.kwargs.copy()
@@ -5029,10 +5073,10 @@ class Componente(object):
         self.SG = cmp[124]
         self.Tc = unidades.Temperature(cmp[4])
         self.Pc = unidades.Pressure(cmp[5], "atm")
-        self.Tb = unidades.Temperature(cmp[131])
-        self.Tf = unidades.Temperature(cmp[132])
+        self.Tb = unidades.Temperature(cmp[129])
+        self.Tf = unidades.Temperature(cmp[130])
         if cmp[125] != 0:
-            self.f_acent = cmp[125]
+            self.f_acent = float(cmp[125])
         elif self.Pc and self.Tc and self.Tb:
             self.f_acent = self._f_acent()
         else:
@@ -5058,8 +5102,8 @@ class Componente(object):
 
         # Parametric parameters
         self.antoine = cmp[14:17]
-        self.antoine += cmp[152:156]
-        self.wagner = cmp[156:160]
+        self.antoine += cmp[150:154]
+        self.wagner = cmp[154:158]
         self._parametricMu = cmp[21:23]
         self._parametricSigma = cmp[23:25]
         self.henry = cmp[17:21]
@@ -5088,42 +5132,32 @@ class Componente(object):
 
         self.SolubilityParameter = unidades.SolubilityParameter(cmp[126])
         self.Kw = cmp[127]
-        self.MSRK = cmp[128:130]
-        self.stiel = cmp[130]
-        self.CASNumber = cmp[133]
-        self.alternateFormula = cmp[134]
-        self.UNIFAC = eval(cmp[135])
+        self.stiel = cmp[128]
+        self.CASNumber = cmp[131]
+        self.alternateFormula = cmp[132]
+        self.UNIFAC = eval(cmp[133])
 
-        self.Dm = cmp[136]
-        self.ek = cmp[137]
+        self.Dm = cmp[134]
+        self.ek = cmp[135]
 
-        self.UNIQUAC_area = cmp[138]
-        self.UNIQUAC_volumen = cmp[139]
-        if cmp[140] == 0.0:
-            # See reference, really only use for MSRK:
-            # Compilation of Parameters for a Polar Fluid Soave-Redlich-Kwong
-            # Equation of State
-            # Jamal A. Sandarusi, Arthur J. Kidney, and Victor F. Yesavage
-            # Ind. Eng. Chem. Proc. Des. Dev.; 1988, 25, 957-963
-            self.f_acent_mod = cmp[125]
-
-        else:
-            self.f_acent_mod = cmp[140]
-        self.Hf = unidades.Enthalpy(cmp[141]/self.M)
-        self.Gf = unidades.Enthalpy(cmp[142]/self.M)
-        self.wilson = cmp[143]
-        self.NetHeating = unidades.Enthalpy(cmp[144]/self.M)
-        self.GrossHeating = unidades.Enthalpy(cmp[145]/self.M)
-        self.Synonyms = cmp[146]
-        self.V_char = cmp[147]
-        self.calor_formacion_solido = cmp[148]
-        self.energia_formacion_solido = cmp[149]
-        self.PolarParameter = cmp[150]
-        self.smile = cmp[151]
+        self.UNIQUAC_area = cmp[136]
+        self.UNIQUAC_volumen = cmp[137]
+        self.f_acent_mod = cmp[138]
+        self.Hf = unidades.Enthalpy(cmp[139]/self.M)
+        self.Gf = unidades.Enthalpy(cmp[140]/self.M)
+        self.wilson = unidades.MolarVolume(cmp[141], "ccmol")
+        self.NetHeating = unidades.Enthalpy(cmp[142]/self.M)
+        self.GrossHeating = unidades.Enthalpy(cmp[143]/self.M)
+        self.Synonyms = cmp[144]
+        self.V_char = cmp[145]
+        self.calor_formacion_solido = cmp[146]
+        self.energia_formacion_solido = cmp[147]
+        self.PolarParameter = cmp[148]
+        self.smile = cmp[149]
 
         # Molecule graphic plot from smile code
-        if self.smile and os.environ["pybel"] == "True":
-            from pybel import readstring
+        if self.smile and os.environ["openbabel"] == "True":
+            from openbabel.pybel import readstring
             mol = readstring("smi", self.smile)
             self.imageFile = tempfile.NamedTemporaryFile("w", suffix=".svg")
 
@@ -5295,7 +5329,7 @@ class Componente(object):
 
     @refDoc(__doi__, [5], tab=8)
     def _so(self, T):
-        """Ideal gas entropy calculation from polinomial coefficient of
+        r"""Ideal gas entropy calculation from polinomial coefficient of
         specific heat saved in database
         Coefficient in database are in the form [A,B,C,D,E,F]
         Explained in procedure 7A1.1, pag 543
@@ -5332,9 +5366,11 @@ class Componente(object):
         if Pcorr is None or method >= len(Componente.METHODS_RhoLP):
             Pcorr = self.Config.getint("Transport", "Corr_RhoL")
 
+        if T > self.Tc:
+            T = 0.9*self.Tc
+
         # Calculate of low pressure viscosity
-        if method == 0 and self._dipprRhoL and \
-                self._dipprRhoL[6] <= T <= self._dipprRhoL[7]:
+        if method == 0 and self._dipprRhoL:
             rhos = DIPPR("rhoL", T, self._dipprRhoL[:-2], M=self.M, Tc=self.Tc)
         elif method == 1 and self.rackett != 0 and T < self.Tc:
             rhos = RhoL_Rackett(T, self.Tc, self.Pc, self.rackett, self.M)
@@ -5468,9 +5504,11 @@ class Componente(object):
         if Pcorr is None or method >= len(Componente.METHODS_ThLP):
             Pcorr = self.Config.getint("Transport", "Corr_ThCondL")
 
+        if T > self.Tc:
+            T = 0.9*self.Tc
+
         # Calculate of low pressure viscosity
-        if method == 0 and self._dipprKL and \
-                self._dipprKL[6] <= T <= self._dipprKL[7]:
+        if method == 0 and self._dipprKL:
             ko = DIPPR("kL", T, self._dipprKL[:-2], M=self.M, Tc=self.Tc)
         elif method == 1 and T < self.Tc:
             ko = ThL_Pachaiyappan(T, self.Tc, self.M, rho, self.branched)
@@ -5523,8 +5561,7 @@ class Componente(object):
             Pcorr = self.Config.getint("Transport", "Corr_ThCondG")
 
         # Calculate of low pressure viscosity
-        if method == 0 and self._dipprKG and \
-                self._dipprKG[6] <= T <= self._dipprKG[7]:
+        if method == 0 and self._dipprKG:
             ko = DIPPR("kG", T, self._dipprKG[:-2], M=self.M, Tc=self.Tc)
         elif method == 1:
             cp = self.Cp_Gas_DIPPR(T)
@@ -5551,7 +5588,7 @@ class Componente(object):
                 ko = ThG_MisicThodos(T, self.Tc, self.Pc, self.M, cp)
 
         # Add correction factor for high pressure
-        if P < 1e6:
+        if P < 1e7:
             k = ko
         elif self.id in [1, 46, 47, 48, 50, 51, 111]:
             k = ThG_NonHydrocarbon(T, P, self.id)
@@ -5748,6 +5785,12 @@ class Componente(object):
     def Tension(self, T):
         """Liquid surface tension procedure using the method defined in
         preferences"""
+
+        # Calculate this property only if the Temperature is below critical
+        # temperature
+        if T > self.Tc:
+            return 0
+
         method = self.kwargs["Tension"]
         if method is None or method >= len(Componente.METHODS_Tension):
             method = self.Config.getint("Transport", "Tension")
@@ -5798,9 +5841,14 @@ class Componente(object):
         """Calculate the specific heat of solid using the DIPPR equations"""
         return DIPPR("cpS", T, self._dipprCpS[:-2], M=self.M, Tc=self.Tc)
 
-    def Cp_Liquido_DIPPR(self, T):
-        """Calculate the specific heat of liquid using the DIPPR equations"""
         return DIPPR("cpL", T, self._dipprCpL[:-2], M=self.M, Tc=self.Tc)
+
+    def Cp_Liquido(self, T):
+        if self._dipprCpL:
+            return DIPPR("cpL", T, self._dipprCpL[:-2], M=self.M, Tc=self.Tc)
+        else:
+            Cpo = self._Cpo(T)
+            return CpL_Poling(T, self.Tc, self.f_acent, Cpo)
 
     def Cp_Gas_DIPPR(self, T):
         """Calculate the specific heat of gas using the DIPPR equations"""
@@ -5817,7 +5865,7 @@ class Componente(object):
 
     def Fase(self, T, P):
         """Método que calcula el estado en el que se encuentra la sustancia"""
-        Pv = self.Pv(T).atm
+        Pv = self.Pv(T)
         if Pv > P:
             return 1
         else:

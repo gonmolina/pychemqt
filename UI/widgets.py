@@ -292,7 +292,7 @@ class Entrada_con_unidades(QtWidgets.QWidget):
                     float(txt), "conf", magnitud=self.UIconfig)
             else:
                 self.value = self.unidad(txt)
-            if self.value != oldvalue:
+            if self.value != oldvalue or self.value == 0:
                 self.valueChanged.emit(self.value)
                 self.setToolTip()
 
@@ -1218,8 +1218,9 @@ class InputFont(QtWidgets.QWidget):
         layout.setSpacing(0)
 
         self.lineEdit = QtWidgets.QLineEdit()
-        self.lineEdit.setSizePolicy(
-            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        self.lineEdit.setFixedHeight(24)
+        # self.lineEdit.setSizePolicy(
+            # QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         layout.addWidget(self.lineEdit)
         self.fontButton = QtWidgets.QPushButton(QtGui.QIcon(QtGui.QPixmap(
             os.environ["pychemqt"] +
@@ -1427,9 +1428,10 @@ class QLabelMath(QtWidgets.QLabel):
         self.setAlignment(QtCore.Qt.AlignCenter)
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setFrameStyle(QtWidgets.QFrame.Plain)
-        pixmap = mathTex2QPixmap(tex, fs)
-        self.setPixmap(pixmap)
         self.fs = fs
+        if tex:
+            pixmap = mathTex2QPixmap(tex, fs)
+            self.setPixmap(pixmap)
 
     def setTex(self, tex):
         pixmap = mathTex2QPixmap(tex, self.fs)

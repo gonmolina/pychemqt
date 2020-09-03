@@ -57,7 +57,6 @@ class Ethylene(MEoS):
            "titao": [4.43266896, 5.74840149, 7.8027825, 15.5851154]}
 
     CP1 = {"ao": 4.,
-           "an": [], "pow": [],
            "ao_exp": [1]*12,
            "exp": [4353.907145, 2335.2251475, 1930.913215, 1471.9256475,
                    4464.6972475, 1778.39697, 1365.4520425, 1356.8190475,
@@ -249,6 +248,7 @@ class Ethylene(MEoS):
         "gamma2": [1]*8}
 
     eq = smukala, mccarty, jahangiri, shortSpan, sun
+    _PR = [-0.2301, -15.7070]
 
     _surface = {"sigma": [0.0477], "exp": [1.17]}
     _dielectric = {

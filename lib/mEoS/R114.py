@@ -44,8 +44,7 @@ class R114(MEoS):
     CP1 = {"ao": 0.97651380e-1*f,
            "an": [0.3240861e-2*f, -0.5895364e-5*f, 0.6737929e-8*f,
                   -0.3546364e-11*f],
-           "pow": [1, 2, 3, 4],
-           "ao_exp": [], "exp": []}
+           "pow": [1, 2, 3, 4]}
 
     platzer = {
         "__type__": "Helmholtz",
@@ -78,6 +77,7 @@ class R114(MEoS):
         "gamma2": [1.21103865]*6}
 
     eq = platzer,
+    _PR = [-0.1804, -16.3839]
 
     _surface = {"sigma": [0.05239], "exp": [1.258]}
     _vapor_Pressure = {

@@ -58,7 +58,6 @@ class N2(MEoS):
     Fi2 = {"ao_log": [1, 2.50031],
            "pow": [0, 1],
            "ao_pow": [11.083407489, -22.202102428],
-           "ao_exp": [], "titao": [],
            "ao_sinh": [0.13732, 0.90066], "sinh": [5.25182262, 13.788988208],
            "ao_cosh": [-0.1466], "cosh": [-5.393067706]}
 
@@ -288,7 +287,7 @@ class N2(MEoS):
         "gamma2": [1]*8}
 
     eq = span, younglove, GERG, jacobsen, shortSpan, sun
-    _PR = -0.004032
+    _PR = [-0.7468, -11.9697]
 
     _surface = {"sigma": [0.02898], "exp": [1.246]}
     _dielectric = {

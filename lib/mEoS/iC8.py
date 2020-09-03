@@ -41,7 +41,6 @@ class iC8(MEoS):
     id = 82
 
     CP1 = {"ao": 10.76,
-           "an": [], "pow": [],
            "ao_exp": [15.48, 34.42, 21.42],
            "exp": [775, 1900, 5100]}
 
@@ -80,7 +79,6 @@ class iC8(MEoS):
         "nr4": []}
 
     eq = blackham,
-    _PR = -0.0058658
 
     _surface = {"sigma": [0.0476182, 5.992036e-17], "exp": [1.1914, 2.1914]}
     _vapor_Pressure = {
